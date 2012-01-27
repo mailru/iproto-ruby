@@ -8,5 +8,9 @@ module IProto
       end
       @next_request_id
     end
+
+    def send_request(request_id, data)
+      # for override
+    end
   end
 end

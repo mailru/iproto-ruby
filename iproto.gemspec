@@ -22,6 +22,7 @@ Gem::Specification.new do |s|
 
   # = MANIFEST =
   s.files = %w[
+    LICENSE
     README.md
     Rakefile
     iproto.gemspec

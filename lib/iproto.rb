@@ -1,5 +1,5 @@
 module IProto
-  VERSION = '0.1'
+  VERSION = '0.2'
   class IProtoError < StandardError; end
   class CouldNotConnect < IProtoError; end
   class UnexpectedResponse < IProtoError; end

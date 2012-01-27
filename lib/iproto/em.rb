@@ -92,8 +92,9 @@ module IProto
     # end FixedHeaderAndBody API
 
     # begin ConnectionAPI
-    def send_packet(request_id, data)
-      send_data data      
+    def send_request(request_type, body)
+      request_id = next_request_id
+      send_data [request_type, body.size, request_id].pack('LLL') + body
       f = Fiber.current
       waiting_requests[request_id] = f
       Fiber.yield
