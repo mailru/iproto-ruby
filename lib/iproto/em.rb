@@ -76,6 +76,7 @@ module IProto
       @port = port
       @should_reconnect = !!reconnect
       @reconnect_timer = nil
+      @connected = false
       @waiting_requests = {}
     end
 
@@ -102,6 +103,7 @@ module IProto
     end
 
     def _send_request(request_type, body, request)
+      raise IProto::Disconnected.new("connection is closed")  if @should_reconnect.nil?
       while @waiting_requests.include?(request_id = next_request_id); end
       send_data [request_type, body.size, request_id].pack(PACK) + body
       @waiting_requests[request_id] = request
