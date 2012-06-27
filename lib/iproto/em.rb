@@ -12,7 +12,7 @@ module IProto
           if size
             @_header_size = size
           else
-            @_header_size
+            @_header_size ||= superclass.header_size
           end
         end
       end
@@ -83,7 +83,6 @@ module IProto
       @connected = true
     end
 
-    # begin FixedHeaderAndBody API
     def body_size
       @body_size
     end
@@ -93,21 +92,20 @@ module IProto
     end
 
     def receive_body(data)
-      fiber = @waiting_requests.delete @request_id
-      raise IProto::UnexpectedResponse.new("For request id #{@request_id}") unless fiber
-      fiber.resume data
+      request = @waiting_requests.delete @request_id
+      raise IProto::UnexpectedResponse.new("For request id #{@request_id}") unless request
+      do_response request, data
     end
-    # end FixedHeaderAndBody API
 
-    # begin ConnectionAPI
-    def send_request(request_type, body)
-      request_id = next_request_id
-      send_data [request_type, body.size, request_id].pack(PACK) + body
-      f = Fiber.current
-      @waiting_requests[request_id] = f
-      Fiber.yield
+    def do_response(request, data)
+      raise NoMethodError, "should be overloaded"
     end
-    # end
+
+    def _send_request(request_type, body, request)
+      while @waiting_requests.include?(request_id = next_request_id); end
+      send_data [request_type, body.size, request_id].pack(PACK) + body
+      @waiting_requests[request_id] = request
+    end
 
     def close
       close_connection(false)
@@ -126,10 +124,10 @@ module IProto
     end
 
     def discard_requests
-      exc = IProto::Disconnected.new
+      exc = IProto::Disconnected.new("discarded cause of disconnect")
       @waiting_requests.keys.each do |req|
-        fiber = @waiting_requests.delete req
-        fiber.resume exc
+        request = @waiting_requests.delete req
+        do_response request, exc
       end
     end
 
@@ -150,6 +148,18 @@ module IProto
       when nil
         # do nothing cause we explicitely disconnected
       end
+    end
+  end
+
+  class FiberedConnection < Connection
+    def do_response(fiber, data)
+      fiber.resume data
+    end
+
+    def send_request(request_type, body)
+      fiber = Fiber.current
+      _send_request(request_type, body, fiber)
+      Fiber.yield
     end
   end
 
