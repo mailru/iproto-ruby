@@ -75,6 +75,7 @@ module IProto
       @host = host
       @port = port
       @should_reconnect = !!reconnect
+      @reconnect_timer = nil
       @waiting_requests = {}
     end
 
@@ -114,7 +115,13 @@ module IProto
 
     def close_connection(*args)
       @should_reconnect = nil
-      super(*args)
+      if @reconnect_timer
+        ::EM.cancel_timer @reconnect_timer
+        @reconnect_timer = nil
+      end
+      if @connected
+        super(*args)
+      end
       discard_requests
     end
 
@@ -131,7 +138,7 @@ module IProto
       case @should_reconnect
       when true
         @connected = false
-        ::EM.add_timer(0.03) {
+        @reconnect_timer = ::EM.add_timer(0.03) {
           reconnect @host, @port
         }
       when false
