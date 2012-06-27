@@ -163,5 +163,15 @@ module IProto
     end
   end
 
+  class CallbackConnection < Connection
+    def do_response(callback, data)
+      callback.call data
+    end
+
+    def send_request(request_type, body, cb = nil, &block)
+      _send_request(request_type, body, cb || block)
+    end
+  end
+
   end
 end
