@@ -71,6 +71,13 @@ module IProto
 
     header_size 12
 
+    def initialize(host, port, reconnect = true)
+      @host = host
+      @port = port
+      @should_reconnect = !!reconnect
+      @waiting_requests = {}
+    end
+
     def connection_completed
       @connected = true
     end
@@ -85,7 +92,7 @@ module IProto
     end
 
     def receive_body(data)
-      fiber = waiting_requests.delete @request_id
+      fiber = @waiting_requests.delete @request_id
       raise IProto::UnexpectedResponse.new("For request id #{@request_id}") unless fiber
       fiber.resume data
     end
@@ -96,21 +103,46 @@ module IProto
       request_id = next_request_id
       send_data [request_type, body.size, request_id].pack(PACK) + body
       f = Fiber.current
-      waiting_requests[request_id] = f
+      @waiting_requests[request_id] = f
       Fiber.yield
     end
     # end
 
-    def waiting_requests
-      @waiting_requests ||= {}
+    def close
+      close_connection(false)
     end
 
     def close_connection(*args)
+      @should_reconnect = nil
       super(*args)
+      discard_requests
+    end
+
+    def discard_requests
+      exc = IProto::Disconnected.new
+      @waiting_requests.keys.each do |req|
+        fiber = @waiting_requests.delete req
+        fiber.resume exc
+      end
     end
 
     def unbind
-      raise IProto::CouldNotConnect.new unless @connected
+      discard_requests
+      case @should_reconnect
+      when true
+        @connected = false
+        ::EM.add_timer(0.03) {
+          reconnect @host, @port
+        }
+      when false
+        if @connected
+          raise IProto::Disconnected
+        else
+          raise IProto::CouldNotConnect
+        end
+      when nil
+        # do nothing cause we explicitely disconnected
+      end
     end
   end
 

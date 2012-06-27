@@ -3,6 +3,7 @@ module IProto
   class IProtoError < StandardError; end
   class CouldNotConnect < IProtoError; end
   class UnexpectedResponse < IProtoError; end
+  class Disconnected < IProtoError; end
 
   require 'iproto/connection_api'
 
@@ -13,7 +14,7 @@ module IProto
     case type
     when :em
       require 'iproto/em'
-      ::EM.connect host, port, IProto::EM::Connection
+      ::EM.connect host, port, IProto::EM::Connection, host, port
     when :block
       require 'iproto/tcp_socket'
       IProto::TCPSocket.new(host, port)
