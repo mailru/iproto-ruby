@@ -81,7 +81,7 @@ module IProto
     end
 
     def receive_header(header)
-      @type, @body_size, @request_id = header.unpack('L3')
+      @type, @body_size, @request_id = header.unpack(PACK)
     end
 
     def receive_body(data)
@@ -94,7 +94,7 @@ module IProto
     # begin ConnectionAPI
     def send_request(request_type, body)
       request_id = next_request_id
-      send_data [request_type, body.size, request_id].pack('LLL') + body
+      send_data [request_type, body.size, request_id].pack(PACK) + body
       f = Fiber.current
       waiting_requests[request_id] = f
       Fiber.yield

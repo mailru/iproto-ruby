@@ -7,7 +7,7 @@ module IProto
     # begin ConnectionAPI
     def send_request(request_type, body)
       request_id = next_request_id
-      r = send [request_type, body.bytesize, request_id].pack('LLL') + body, 0
+      r = send [request_type, body.bytesize, request_id].pack(PACK) + body, 0
       response_size = recv_header request_id
       recv_response response_size
     end
@@ -15,7 +15,7 @@ module IProto
 
     def recv_header(request_id)
       header = read(12)
-      type, response_size, recv_request_id = header.unpack('L3')
+      type, response_size, recv_request_id = header.unpack(PACK)
       raise UnexpectedResponse.new("Waiting response for request_id #{request_id}, but received for #{recv_request_id}") unless request_id == recv_request_id
       response_size
     end
