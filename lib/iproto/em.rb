@@ -161,7 +161,9 @@ module IProto
     def send_request(request_type, body)
       fiber = Fiber.current
       _send_request(request_type, body, fiber)
-      Fiber.yield
+      result = Fiber.yield
+      raise result  if Exception === result
+      result
     end
   end
 
