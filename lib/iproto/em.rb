@@ -95,7 +95,7 @@ module IProto
       @reconnect_timer = nil
       @connected = true
       shutdown_hook
-      _perform_waiting_for_connect
+      _perform_waiting_for_connect(true)
     end
 
     def body_size
@@ -142,9 +142,17 @@ module IProto
       end
     end
 
-    def _perform_waiting_for_connect
-      @waiting_for_connect.each do |request_type, body, request|
-        _do_send_request(request_type, body, request)
+    def _perform_waiting_for_connect(real)
+      if real
+        @waiting_for_connect.each do |request_type, body, request|
+          _do_send_request(request_type, body, request)
+        end
+      else
+        i = -1
+        @waiting_for_connect.each do |request_type, body, request|
+          @waiting_requests[i] = request
+          i -= 1
+        end
       end
       @waiting_for_connect.clear
     end
@@ -173,7 +181,7 @@ module IProto
 
     def discard_requests
       exc = IProto::Disconnected.new("discarded cause of disconnect")
-      _perform_waiting_for_connect
+      _perform_waiting_for_connect(false)
       @waiting_requests.keys.each do |req|
         request = @waiting_requests.delete req
         do_response request, exc
