@@ -78,10 +78,24 @@ module IProto
       @reconnect_timer = nil
       @connected = false
       @waiting_requests = {}
+      @waiting_for_connect = []
+    end
+
+    def shutdown_hook
+      ::EM.add_shutdown_hook {
+        @connected = false
+        if @reconnect_timer && !(Symbol === @reconnect_timer)
+          ::EM.cancel_timer @reconnect_timer
+        end
+        @reconnect_timer = @should_reconnect ? :force : nil
+      }
     end
 
     def connection_completed
+      @reconnect_timer = nil
       @connected = true
+      shutdown_hook
+      _perform_waiting_for_connect
     end
 
     def body_size
@@ -102,8 +116,40 @@ module IProto
       raise NoMethodError, "should be overloaded"
     end
 
+    def _setup_reconnect_timer(timeout)
+      if @reconnect_timer.nil? || @reconnect_timer == :force
+        @reconnect_timer = :waiting
+        if @timeout == 0
+          reconnect @host, @port
+        else
+          @reconnect_timer = ::EM.add_timer(timeout) do
+            reconnect @host, @port
+          end
+        end
+      end
+    end
+
     def _send_request(request_type, body, request)
-      raise IProto::Disconnected.new("connection is closed")  if @should_reconnect.nil?
+      unless @connected
+        unless @should_reconnect
+          raise IProto::Disconnected.new("connection is closed")  if @should_reconnect.nil?
+        else
+          @waiting_for_connect << [request_type, body, request]
+          _setup_reconnect_timer(0)
+        end
+      else
+        _do_send_request(request_type, body, request)
+      end
+    end
+
+    def _perform_waiting_for_connect
+      @waiting_for_connect.each do |request_type, body, request|
+        _do_send_request(request_type, body, request)
+      end
+      @waiting_for_connect.clear
+    end
+
+    def _do_send_request(request_type, body, request)
       while @waiting_requests.include?(request_id = next_request_id); end
       send_data [request_type, body.size, request_id].pack(PACK) + body
       @waiting_requests[request_id] = request
@@ -116,7 +162,7 @@ module IProto
     def close_connection(*args)
       @should_reconnect = nil
       if @reconnect_timer
-        ::EM.cancel_timer @reconnect_timer
+        ::EM.cancel_timer @reconnect_timer  unless Symbol === @reconnect_timer
         @reconnect_timer = nil
       end
       if @connected
@@ -127,6 +173,7 @@ module IProto
 
     def discard_requests
       exc = IProto::Disconnected.new("discarded cause of disconnect")
+      _perform_waiting_for_connect
       @waiting_requests.keys.each do |req|
         request = @waiting_requests.delete req
         do_response request, exc
@@ -138,9 +185,7 @@ module IProto
       case @should_reconnect
       when true
         @connected = false
-        @reconnect_timer = ::EM.add_timer(0.03) {
-          reconnect @host, @port
-        }
+        _setup_reconnect_timer(0.03) unless @reconnect_timer == :force
       when false
         if @connected
           raise IProto::Disconnected
