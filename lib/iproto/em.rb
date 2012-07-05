@@ -1,5 +1,7 @@
 require 'eventmachine'
 require 'fiber'
+require 'iproto/core-ext'
+
 module IProto
   module EM
     module FixedHeaderProtocol
@@ -113,7 +115,7 @@ module IProto
     end
 
     def do_response(request, data)
-      raise NoMethodError, "should be overloaded"
+      request.call data
     end
 
     def _setup_reconnect_timer(timeout)
@@ -207,13 +209,8 @@ module IProto
   end
 
   class FiberedConnection < Connection
-    def do_response(fiber, data)
-      fiber.resume data
-    end
-
     def send_request(request_type, body)
-      fiber = Fiber.current
-      _send_request(request_type, body, fiber)
+      _send_request(request_type, body, Fiber.current)
       result = Fiber.yield
       raise result  if Exception === result
       result
@@ -221,10 +218,6 @@ module IProto
   end
 
   class CallbackConnection < Connection
-    def do_response(callback, data)
-      callback.call data
-    end
-
     def send_request(request_type, body, cb = nil, &block)
       _send_request(request_type, body, cb || block)
     end
