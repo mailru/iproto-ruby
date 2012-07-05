@@ -4,74 +4,34 @@ require 'iproto/core-ext'
 
 module IProto
   module EM
-    module FixedHeaderProtocol
-      def self.included(base)
-        base.extend ClassMethods
+    module FixedLengthProtocol
+      def post_init
+        raise "you should set @_needed_size"  unless @_needed_size
       end
-
-      module ClassMethods
-        def header_size(size = nil)
-          if size
-            @_header_size = size
-          else
-            @_header_size ||= superclass.header_size
-          end
-        end
-      end
-
-      attr_accessor :header, :body
 
       def receive_data(data)
         @buffer ||= ''
         offset = 0
-        while (chunk = data[offset, _needed_size - @buffer.size]).size > 0 || _needed_size == 0
-          @buffer += chunk
+        while (chunk = data[offset, _needed_size - @buffer.size]).size > 0
+          @buffer << chunk
           offset += chunk.size
           if @buffer.size == _needed_size
-            case _state
-            when :receive_header
-              @_state = :receive_body
-              receive_header @buffer
-            when :receive_body
-              @_state = :receive_header
-              receive_body @buffer
-            end
+            chunk = @buffer
             @buffer = ''
+            receive_chunk chunk
           end
         end 
       end
 
-      def receive_header(header)
+      def receive_chunk(chunk)
         # for override
-      end
-
-      def body_size
-        # for override
-      end
-
-      def receive_body(body)
-        # for override
-      end
-
-      def _needed_size
-        case _state
-        when :receive_header
-          self.class.header_size
-        when :receive_body
-          body_size
-        end
-      end
-
-      def _state
-        @_state ||= :receive_header
       end
     end
 
   class Connection < ::EM::Connection
     include IProto::ConnectionAPI
-    include FixedHeaderProtocol
-
-    header_size 12
+    include FixedLengthProtocol
+    HEADER_SIZE = 12
 
     def initialize(host, port, reconnect = true)
       @host = host
@@ -81,6 +41,7 @@ module IProto
       @connected = false
       @waiting_requests = {}
       @waiting_for_connect = []
+      init_protocol
     end
 
     def shutdown_hook
@@ -100,18 +61,24 @@ module IProto
       _perform_waiting_for_connect(true)
     end
 
-    def body_size
-      @body_size
+    attr_reader :_needed_size
+    def init_protocol
+      @_needed_size = HEADER_SIZE
+      @_state = :receive_header
     end
 
-    def receive_header(header)
-      @type, @body_size, @request_id = header.unpack(PACK)
-    end
-
-    def receive_body(data)
-      request = @waiting_requests.delete @request_id
-      raise IProto::UnexpectedResponse.new("For request id #{@request_id}") unless request
-      do_response request, data
+    def receive_chunk(chunk)
+      if @_state == :receive_header
+        @type, body_size, @request_id = chunk.unpack(PACK)
+        @_needed_size = body_size
+        @_state = :receive_body
+      else
+        request = @waiting_requests.delete @request_id
+        raise IProto::UnexpectedResponse.new("For request id #{@request_id}") unless request
+        @_needed_size = HEADER_SIZE
+        @_state = :receive_header
+        do_response(request, chunk)
+      end
     end
 
     def do_response(request, data)

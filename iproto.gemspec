@@ -4,8 +4,8 @@ Gem::Specification.new do |s|
   s.rubygems_version = '1.3.5'
 
   s.name              = 'iproto'
-  s.version           = '0.3.2'
-  s.date              = '2012-06-29'
+  s.version           = '0.3.3'
+  s.date              = '2012-07-05'
   s.rubyforge_project = 'iproto'
 
   s.summary     = "Mail.Ru simple network protocol"
@@ -28,6 +28,7 @@ Gem::Specification.new do |s|
     iproto.gemspec
     lib/iproto.rb
     lib/iproto/connection_api.rb
+    lib/iproto/core-ext.rb
     lib/iproto/em.rb
     lib/iproto/tcp_socket.rb
   ]

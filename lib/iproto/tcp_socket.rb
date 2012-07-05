@@ -25,7 +25,7 @@ module IProto
     # begin ConnectionAPI
     def send_request(request_type, body)
       request_id = next_request_id
-      r = socket.send [request_type, body.bytesize, request_id].pack(PACK) + body, 0
+      r = socket.send ([request_type, body.bytesize, request_id].pack(PACK) << body), 0
       response_size = recv_header request_id
       recv_response response_size
     rescue Errno::EPIPE => e
