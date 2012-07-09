@@ -36,12 +36,21 @@ module IProto
     def initialize(host, port, reconnect = true)
       @host = host
       @port = port
+      @reconnect_timeout = Numeric === reconnect ? reconnect : DEFAULT_RECONNECT
       @should_reconnect = !!reconnect
-      @reconnect_timer = nil
+      @reconnect_timer = :waiting
       @connected = false
       @waiting_requests = {}
       @waiting_for_connect = []
       init_protocol
+    end
+
+    def connected?
+      !!@connected
+    end
+
+    def could_be_connected?
+      @connected || @reconnect_timer == :waiting
     end
 
     def shutdown_hook
@@ -100,8 +109,8 @@ module IProto
 
     def _send_request(request_type, body, request)
       unless @connected
-        unless @should_reconnect
-          raise IProto::Disconnected.new("connection is closed")  if @should_reconnect.nil?
+        unless @reconnect_timer && (@reconnect_timer != :force || EM.running?)
+          do_response(request, IProto::Disconnected.new("connection is closed"))
         else
           @waiting_for_connect << [request_type, body, request]
           _setup_reconnect_timer(0)
@@ -162,7 +171,7 @@ module IProto
       case @should_reconnect
       when true
         @connected = false
-        _setup_reconnect_timer(0.03) unless @reconnect_timer == :force
+        _setup_reconnect_timer(@reconnect_timeout) unless @reconnect_timer == :force
       when false
         if @connected
           raise IProto::Disconnected
