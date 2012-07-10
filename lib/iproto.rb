@@ -1,9 +1,10 @@
 module IProto
   VERSION = '0.3.3'
   class IProtoError < StandardError; end
-  class CouldNotConnect < IProtoError; end
+  class ConnectionError < IProtoError; end
+  class CouldNotConnect < ConnectionError; end
+  class Disconnected < ConnectionError; end
   class UnexpectedResponse < IProtoError; end
-  class Disconnected < IProtoError; end
 
   require 'iproto/connection_api'
 
