@@ -50,7 +50,8 @@ module IProto
     end
 
     def could_be_connected?
-      @connected || @reconnect_timer == :waiting
+      @connected || @reconnect_timer == :waiting ||
+        (@reconnect_timer == :force && ::EM.reactor_running?)
     end
 
     def shutdown_hook
@@ -109,7 +110,7 @@ module IProto
 
     def _send_request(request_type, body, request)
       unless @connected
-        unless @reconnect_timer && (@reconnect_timer != :force || EM.running?)
+        unless @reconnect_timer && (@reconnect_timer != :force || ::EM.reactor_running?)
           do_response(request, IProto::Disconnected.new("connection is closed"))
         else
           @waiting_for_connect << [request_type, body, request]
