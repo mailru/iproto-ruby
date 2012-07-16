@@ -111,7 +111,13 @@ module IProto
     def _send_request(request_type, body, request)
       unless @connected
         unless @reconnect_timer && (@reconnect_timer != :force || ::EM.reactor_running?)
-          do_response(request, IProto::Disconnected.new("connection is closed"))
+          if ::EM.reactor_running?
+            EM.next_tick{
+              do_response(request, IProto::Disconnected.new("connection is closed"))
+            }
+          else
+            do_response(request, IProto::Disconnected.new("connection is closed"))
+          end
         else
           @waiting_for_connect << [request_type, body, request]
           _setup_reconnect_timer(0)
