@@ -33,31 +33,47 @@ module IProto
     include FixedLengthProtocol
     HEADER_SIZE = 12
 
+    attr_reader :host, :port
+
     def initialize(host, port, reconnect = true)
       @host = host
       @port = port
+      @reconnect_timeout = Numeric === reconnect ? reconnect : DEFAULT_RECONNECT
       @should_reconnect = !!reconnect
       @reconnect_timer = nil
-      @connected = false
+      @connected = :init_waiting
       @waiting_requests = {}
       @waiting_for_connect = []
       init_protocol
+      @shutdown_hook = false
+      shutdown_hook
+    end
+
+    def connected?
+      @connected == true
+    end
+
+    def could_be_connected?
+      @connected && (@connected != :force || ::EM.reactor_running?)
     end
 
     def shutdown_hook
-      ::EM.add_shutdown_hook {
-        @connected = false
-        if @reconnect_timer && !(Symbol === @reconnect_timer)
-          ::EM.cancel_timer @reconnect_timer
-        end
-        @reconnect_timer = @should_reconnect ? :force : nil
-      }
+      unless @shutdown_hook
+        ::EM.add_shutdown_hook {
+          @connected = @should_reconnect ? :force : false
+          if Integer === @reconnect_timer
+            ::EM.cancel_timer @reconnect_timer
+          end
+          @reconnect_timer = nil
+          @shutdown_hook = false
+        }
+        @shutdown_hook = true
+      end
     end
 
     def connection_completed
       @reconnect_timer = nil
       @connected = true
-      shutdown_hook
       _perform_waiting_for_connect(true)
     end
 
@@ -70,15 +86,19 @@ module IProto
     def receive_chunk(chunk)
       if @_state == :receive_header
         @type, body_size, @request_id = chunk.unpack(PACK)
-        @_needed_size = body_size
-        @_state = :receive_body
-      else
-        request = @waiting_requests.delete @request_id
-        raise IProto::UnexpectedResponse.new("For request id #{@request_id}") unless request
-        @_needed_size = HEADER_SIZE
-        @_state = :receive_header
-        do_response(request, chunk)
+        if body_size > 0
+          @_needed_size = body_size
+          @_state = :receive_body
+          return
+        else
+          chunk = ''
+        end
       end
+      request = @waiting_requests.delete @request_id
+      raise IProto::UnexpectedResponse.new("For request id #{@request_id}") unless request
+      @_needed_size = HEADER_SIZE
+      @_state = :receive_header
+      do_response(request, chunk)
     end
 
     def do_response(request, data)
@@ -86,9 +106,11 @@ module IProto
     end
 
     def _setup_reconnect_timer(timeout)
-      if @reconnect_timer.nil? || @reconnect_timer == :force
+      if @reconnect_timer.nil?
         @reconnect_timer = :waiting
-        if @timeout == 0
+        @connected = :waiting
+        shutdown_hook
+        if timeout == 0
           reconnect @host, @port
         else
           @reconnect_timer = ::EM.add_timer(timeout) do
@@ -99,22 +121,32 @@ module IProto
     end
 
     def _send_request(request_type, body, request)
-      unless @connected
-        unless @should_reconnect
-          raise IProto::Disconnected.new("connection is closed")  if @should_reconnect.nil?
+      unless could_be_connected?
+        if ::EM.reactor_running?
+          EM.next_tick{
+            do_response(request, IProto::Disconnected.new("connection is closed"))
+          }
         else
-          @waiting_for_connect << [request_type, body, request]
-          _setup_reconnect_timer(0)
+          do_response(request, IProto::Disconnected.new("connection is closed"))
         end
       else
-        _do_send_request(request_type, body, request)
+        if @connected == true
+          _do_send_request(request_type, body, request)
+        else
+          @waiting_for_connect << [request_type, body, request]
+          if @connected == :force && ::EM.reactor_running?
+            _setup_reconnect_timer(0)
+          end
+        end
       end
     end
 
     def _perform_waiting_for_connect(real)
       if real
         @waiting_for_connect.each do |request_type, body, request|
+          ::EM.next_tick{
           _do_send_request(request_type, body, request)
+          }
         end
       else
         i = -1
@@ -138,13 +170,15 @@ module IProto
 
     def close_connection(*args)
       @should_reconnect = nil
-      if @reconnect_timer
-        ::EM.cancel_timer @reconnect_timer  unless Symbol === @reconnect_timer
-        @reconnect_timer = nil
+      if Integer === @reconnect_timer
+        ::EM.cancel_timer @reconnect_timer
       end
-      if @connected
+      @reconnect_timer = nil
+
+      if @connected == true
         super(*args)
       end
+      @connected = false
       discard_requests
     end
 
@@ -158,16 +192,22 @@ module IProto
     end
 
     def unbind
+      prev_connected = @connected
+      @connected = false
       discard_requests
+      @connected = prev_connected
       case @should_reconnect
       when true
-        @connected = false
-        _setup_reconnect_timer(0.03) unless @reconnect_timer == :force
+        @reconnect_timer = nil
+        unless @connected == :force
+          @connected = false
+          _setup_reconnect_timer(@reconnect_timeout)
+        end
       when false
-        if @connected
-          raise IProto::Disconnected
-        else
+        if @connected == :init_waiting
           raise IProto::CouldNotConnect
+        else
+          raise IProto::Disconnected
         end
       when nil
         # do nothing cause we explicitely disconnected
