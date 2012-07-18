@@ -121,23 +121,19 @@ module IProto
     end
 
     def _send_request(request_type, body, request)
-      unless could_be_connected?
-        if ::EM.reactor_running?
-          EM.next_tick{
-            do_response(request, IProto::Disconnected.new("connection is closed"))
-          }
-        else
+      if @connected == true
+        _do_send_request(request_type, body, request)
+      elsif could_be_connected?
+        @waiting_for_connect << [request_type, body, request]
+        if @connected == :force
+          _setup_reconnect_timer(0)
+        end
+      elsif ::EM.reactor_running?
+        EM.next_tick{
           do_response(request, IProto::Disconnected.new("connection is closed"))
-        end
+        }
       else
-        if @connected == true
-          _do_send_request(request_type, body, request)
-        else
-          @waiting_for_connect << [request_type, body, request]
-          if @connected == :force && ::EM.reactor_running?
-            _setup_reconnect_timer(0)
-          end
-        end
+        do_response(request, IProto::Disconnected.new("connection is closed"))
       end
     end
 
