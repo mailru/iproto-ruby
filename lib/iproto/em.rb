@@ -108,9 +108,9 @@ module IProto
     def _setup_reconnect_timer(timeout)
       if @reconnect_timer.nil?
         @reconnect_timer = :waiting
-        @connected = :waiting
         shutdown_hook
         if timeout == 0
+          @connected = :waiting
           reconnect @host, @port
         else
           @reconnect_timer = ::EM.add_timer(timeout) do
@@ -196,6 +196,7 @@ module IProto
       @connected = false
       discard_requests
       @connected = prev_connected
+
       case @should_reconnect
       when true
         @reconnect_timer = nil
