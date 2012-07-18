@@ -15,10 +15,10 @@ module IProto
     case type
     when :em
       require 'iproto/em'
-      ::EM.connect host, port, IProto::EM::FiberedConnection, host, port, reconnect
+      ::EM.connect host, port, IProto::EMFiberedConnection, host, port, reconnect
     when :em_callback
       require 'iproto/em'
-      ::EM.connect host, port, IProto::EM::CallbackConnection, host, port, reconnect
+      ::EM.connect host, port, IProto::EMCallbackConnection, host, port, reconnect
     when :block
       require 'iproto/tcp_socket'
       IProto::TCPSocket.new(host, port, reconnect)

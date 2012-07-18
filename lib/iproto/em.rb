@@ -3,7 +3,7 @@ require 'fiber'
 require 'iproto/core-ext'
 
 module IProto
-  module EM
+  class EMConnection < ::EM::Connection
     module FixedLengthProtocol
       def post_init
         raise "you should set @_needed_size"  unless @_needed_size
@@ -28,10 +28,8 @@ module IProto
       end
     end
 
-  class Connection < ::EM::Connection
     include IProto::ConnectionAPI
     include FixedLengthProtocol
-    HEADER_SIZE = 12
 
     attr_reader :host, :port
 
@@ -212,7 +210,7 @@ module IProto
     end
   end
 
-  class FiberedConnection < Connection
+  class EMFiberedConnection < EMConnection
     def send_request(request_type, body)
       _send_request(request_type, body, Fiber.current)
       result = Fiber.yield
@@ -221,11 +219,9 @@ module IProto
     end
   end
 
-  class CallbackConnection < Connection
+  class EMCallbackConnection < EMConnection
     def send_request(request_type, body, cb = nil, &block)
       _send_request(request_type, body, cb || block)
     end
-  end
-
   end
 end

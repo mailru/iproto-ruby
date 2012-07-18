@@ -60,7 +60,7 @@ module IProto
     # end ConnectionAPI
 
     def recv_header(request_id)
-      header = socket.read(12)  or _raise_disconnected('disconnected while read', @retry ? :retry : true)
+      header = socket.read(HEADER_SIZE)  or _raise_disconnected('disconnected while read', @retry ? :retry : true)
       type, response_size, recv_request_id = header.unpack(PACK)
       unless request_id == recv_request_id
         raise UnexpectedResponse.new("Waiting response for request_id #{request_id}, but received for #{recv_request_id}")
