@@ -48,7 +48,7 @@ module IProto
     def send_request(request_type, body)
       begin
         request_id = next_request_id
-        r = socket.send ([request_type, body.bytesize, request_id].pack(PACK) << body), 0
+        socket.send pack_request(request_type, request_id, body), 0
         response_size = recv_header request_id
         recv_response response_size
       rescue Errno::EPIPE, Retry => e
@@ -61,7 +61,8 @@ module IProto
 
     def recv_header(request_id)
       header = socket.read(HEADER_SIZE)  or _raise_disconnected('disconnected while read', @retry ? :retry : true)
-      type, response_size, recv_request_id = header.unpack(PACK)
+      response_size = ::BinUtils.get_int32_le(header, 4)
+      recv_request_id = ::BinUtils.get_int32_le(header, 8)
       unless request_id == recv_request_id
         raise UnexpectedResponse.new("Waiting response for request_id #{request_id}, but received for #{recv_request_id}")
       end

@@ -83,7 +83,8 @@ module IProto
 
     def receive_chunk(chunk)
       if @_state == :receive_header
-        @type, body_size, @request_id = chunk.unpack(PACK)
+        body_size = ::BinUtils.get_int32_le(chunk, 4)
+        @request_id = ::BinUtils.get_int32_le(chunk, 8)
         if body_size > 0
           @_needed_size = body_size
           @_state = :receive_body
@@ -154,7 +155,7 @@ module IProto
 
     def _do_send_request(request_type, body, request)
       while @waiting_requests.include?(request_id = next_request_id); end
-      send_data [request_type, body.size, request_id].pack(PACK) + body
+      send_data pack_request(request_type, request_id, body)
       @waiting_requests[request_id] = request
     end
 

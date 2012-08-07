@@ -1,6 +1,6 @@
+require 'bin_utils'
 module IProto
   module ConnectionAPI
-    PACK = 'VVV'.freeze
     DEFAULT_RECONNECT = 0.1
     HEADER_SIZE = 12
 
@@ -10,6 +10,13 @@ module IProto
 
     def send_request(request_id, data)
       # for override
+    end
+
+    BINARY = ::Encoding::BINARY
+    def pack_request(request_type, request_id, body)
+      data = ''.force_encoding(BINARY)
+      ::BinUtils.append_int32_le!(data, request_type, body.bytesize, request_id)
+      ::BinUtils.append_string!(data, body)
     end
   end
 end
