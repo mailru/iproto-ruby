@@ -14,8 +14,7 @@ module IProto
 
     BINARY = ::Encoding::BINARY
     def pack_request(request_type, request_id, body)
-      data = ''.force_encoding(BINARY)
-      ::BinUtils.append_int32_le!(data, request_type, body.bytesize, request_id)
+      data = ::BinUtils.append_int32_le!(nil, request_type, body.bytesize, request_id)
       ::BinUtils.append_string!(data, body)
     end
   end
