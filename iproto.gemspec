@@ -4,7 +4,7 @@ Gem::Specification.new do |s|
   s.rubygems_version = '1.3.5'
 
   s.name              = 'iproto'
-  s.version           = '0.3.9'
+  s.version           = '0.3.10'
   s.date              = '2013-06-30'
   s.rubyforge_project = 'iproto'
 
@@ -37,5 +37,5 @@ Gem::Specification.new do |s|
   ## Test files will be grabbed from the file list. Make sure the path glob
   ## matches what you actually use.
   s.test_files = s.files.select { |path| path =~ /^spec\/.*_spec\.rb/ }
-  s.add_dependency 'bin_utils', ['~> 0.0', '>= 0.0.3']
+  s.add_dependency 'bin_utils', ['~> 0.0.3']
 end
