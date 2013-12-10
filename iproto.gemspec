@@ -14,6 +14,7 @@ Gem::Specification.new do |s|
   s.authors  = ["Andrew Rudenko"]
   s.email    = 'ceo@prepor.ru'
   s.homepage = 'http://github.com/mailru/iproto-ruby'
+  s.license  = ['MIT'] 
 
   s.require_paths = %w[lib]
 
