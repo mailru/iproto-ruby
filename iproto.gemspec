@@ -4,8 +4,8 @@ Gem::Specification.new do |s|
   s.rubygems_version = '1.3.5'
 
   s.name              = 'iproto'
-  s.version           = '0.3.10'
-  s.date              = '2013-06-30'
+  s.version           = '0.3.11'
+  s.date              = '2013-12-10'
   s.rubyforge_project = 'iproto'
 
   s.summary     = "Mail.Ru simple network protocol"
@@ -14,6 +14,7 @@ Gem::Specification.new do |s|
   s.authors  = ["Andrew Rudenko"]
   s.email    = 'ceo@prepor.ru'
   s.homepage = 'http://github.com/mailru/iproto-ruby'
+  s.license = 'BSD-2-Clause'
 
   s.require_paths = %w[lib]
 
