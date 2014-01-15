@@ -26,7 +26,7 @@ module IProto
 
     def could_be_connected?
       @socket ? @socket != :disconnected
-              : (@retry || @reconnect_time < Time.now)
+              : (@reconnect || @reconnect_time < Time.now)
     end
 
     def socket
@@ -38,7 +38,11 @@ module IProto
       end
       sock
     rescue Errno::ECONNREFUSED => e
-      @socket = :disconnected  unless @reconnect
+      unless @reconnect
+        @socket = :disconnected
+      else
+        @reconnect_time = Time.now + @reconnect_timeout
+      end
       raise CouldNotConnect, e
     end
 
@@ -46,6 +50,9 @@ module IProto
 
     # begin ConnectionAPI
     def send_request(request_type, body)
+      unless could_be_connected?
+        raise Disconnected, "connection is closed"
+      end
       begin
         request_id = next_request_id
         socket.send pack_request(request_type, request_id, body), 0
