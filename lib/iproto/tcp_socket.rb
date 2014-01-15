@@ -70,7 +70,7 @@ module IProto
     end
 
     def recv_response(response_size)
-      socket.read(response_size)  or _raise_disconnected('disconnected while read', 2)
+      socket.read(response_size)  or _raise_disconnected('disconnected while read', true)
     end
 
     def _raise_disconnected(message, _raise = true)
