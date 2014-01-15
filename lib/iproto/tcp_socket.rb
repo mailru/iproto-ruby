@@ -74,6 +74,7 @@ module IProto
     end
 
     def _raise_disconnected(message, _raise = true)
+      old_socket = @socket
       if @reconnect
         @socket = nil
         @reconnect_time = Time.now + @reconnect_timeout
@@ -84,7 +85,16 @@ module IProto
       when true
         raise Disconnected, message
       when :retry
-        raise Retry
+        begin
+          # if request were sent, then we will not have EPIPE exception
+          old_socket.send '\x00', 0
+        rescue Errno::EPIPE
+          # OS knows that socket is closed, and request were not sent
+          raise Retry
+        else
+          # OS didn't notice socket is closed, request were sent probably
+          raise Disconnected, message
+        end
       end
     end
   end
