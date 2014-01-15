@@ -4,7 +4,7 @@ Gem::Specification.new do |s|
   s.rubygems_version = '1.3.5'
 
   s.name              = 'iproto'
-  s.version           = '0.3.13'
+  s.version           = '0.3.14'
   s.date              = '2014-01-15'
   s.rubyforge_project = 'iproto'
 
