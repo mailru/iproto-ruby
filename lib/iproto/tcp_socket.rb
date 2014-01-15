@@ -34,6 +34,7 @@ module IProto
         sock != :disconnected ? sock : raise(Disconnected, "disconnected earlier")
       else
         sock = @socket = ::TCPSocket.new(*@addr)
+        sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
         @retry = true
       end
       sock
