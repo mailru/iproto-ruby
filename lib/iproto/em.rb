@@ -26,6 +26,10 @@ module IProto
       def receive_chunk(chunk)
         # for override
       end
+
+      def buffer_reset
+        @buffer = ''
+      end
     end
 
     include IProto::ConnectionAPI
@@ -72,6 +76,7 @@ module IProto
     def connection_completed
       @reconnect_timer = nil
       @connected = true
+      init_protocol
       _perform_waiting_for_connect(true)
     end
 
@@ -79,6 +84,7 @@ module IProto
     def init_protocol
       @_needed_size = HEADER_SIZE
       @_state = :receive_header
+      buffer_reset
     end
 
     def receive_chunk(chunk)
