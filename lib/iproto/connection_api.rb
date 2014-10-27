@@ -1,8 +1,11 @@
 require 'bin_utils'
+require 'iproto/core-ext'
 module IProto
   module ConnectionAPI
     DEFAULT_RECONNECT = 0.1
     HEADER_SIZE = 12
+
+    EMPTY_STR = ''.b.freeze
 
     def next_request_id
       @next_request_id = ((@next_request_id ||= 0) + 1) & 0x7fffffff

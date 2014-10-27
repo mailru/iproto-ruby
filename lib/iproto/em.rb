@@ -10,14 +10,14 @@ module IProto
       end
 
       def receive_data(data)
-        @buffer ||= ''
+        @buffer ||= ''.b
         offset = 0
-        while (chunk = data[offset, _needed_size - @buffer.size]).size > 0
+        while (chunk = data.byteslice(offset, _needed_size - @buffer.bytesize)).size > 0
           @buffer << chunk
           offset += chunk.size
           if @buffer.size == _needed_size
             chunk = @buffer
-            @buffer = ''
+            @buffer = ''.b
             receive_chunk chunk
           end
         end 
@@ -28,7 +28,7 @@ module IProto
       end
 
       def buffer_reset
-        @buffer = ''
+        @buffer = ''.b
       end
     end
 
