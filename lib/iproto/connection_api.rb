@@ -20,5 +20,8 @@ module IProto
       data = ::BinUtils.append_int32_le!(nil, request_type, body.bytesize, request_id)
       ::BinUtils.append_string!(data, body)
     end
+
+    PING = 0xff00
+    PING_ID = 0xffffffff
   end
 end

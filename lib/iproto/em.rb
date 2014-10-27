@@ -43,12 +43,34 @@ module IProto
       @reconnect_timeout = Numeric === reconnect ? reconnect : DEFAULT_RECONNECT
       @should_reconnect = !!reconnect
       @reconnect_timer = nil
+      @ping_timer = nil
       @connected = :init_waiting
       @waiting_requests = {}
       @waiting_for_connect = []
-      init_protocol
       @shutdown_hook = false
+      @inactivity_timeout = 0
+      init_protocol
       shutdown_hook
+    end
+
+    def _start_pinger
+      if @connected == true && (cit = comm_inactivity_timeout) != 0 && @ping_timer == nil
+        @ping_timer = EM.add_periodic_timer([1, cit / 4.0].min, method(:_ping))
+      end
+    end
+
+    def _stop_pinger
+      if @ping_timer
+        @ping_timer.cancel
+        @ping_timer = nil
+      end
+    end
+
+    def comm_inactivity_timeout=(t)
+      _stop_pinger
+      @inactivity_timeout = t
+      super
+      _start_pinger
     end
 
     def connected?
@@ -77,6 +99,7 @@ module IProto
       @reconnect_timer = nil
       @connected = true
       init_protocol
+      self.comm_inactivity_timeout= @inactivity_timeout
       _perform_waiting_for_connect(true)
     end
 
@@ -85,6 +108,10 @@ module IProto
       @_needed_size = HEADER_SIZE
       @_state = :receive_header
       buffer_reset
+    end
+
+    def _ping
+      send_data pack_request(PING, PING_ID, EMPTY_STR)
     end
 
     def receive_chunk(chunk)
@@ -98,6 +125,11 @@ module IProto
         else
           chunk = ''
         end
+      end
+      if @request_id == PING_ID
+        @_needed_size = HEADER_SIZE
+        @_state = :receive_header
+        return
       end
       request = @waiting_requests.delete @request_id
       raise IProto::UnexpectedResponse.new("For request id #{@request_id}") unless request
@@ -193,6 +225,7 @@ module IProto
     end
 
     def unbind
+      _stop_pinger
       prev_connected = @connected
       @connected = false
       discard_requests
