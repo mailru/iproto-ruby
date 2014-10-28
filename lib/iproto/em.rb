@@ -53,24 +53,17 @@ module IProto
       shutdown_hook
     end
 
-    def _start_pinger
-      if @connected == true && (cit = comm_inactivity_timeout) != 0 && @ping_timer == nil
-        @ping_timer = EM.add_periodic_timer([1, cit / 4.0].min, method(:_ping))
-      end
-    end
-
     def _stop_pinger
       if @ping_timer
-        @ping_timer.cancel
+        EM.cancel_timer @ping_timer
         @ping_timer = nil
       end
     end
 
     def comm_inactivity_timeout=(t)
-      _stop_pinger
       @inactivity_timeout = t
       super
-      _start_pinger
+      _ping
     end
 
     def connected?
@@ -112,6 +105,7 @@ module IProto
 
     def _ping
       send_data pack_request(PING, PING_ID, EMPTY_STR)
+      @ping_timer = nil
     end
 
     def receive_chunk(chunk)
@@ -129,6 +123,9 @@ module IProto
       if @request_id == PING_ID
         @_needed_size = HEADER_SIZE
         @_state = :receive_header
+        if @ping_timer == nil && @inactivity_timeout > 0
+          @ping_timer = ::EM.add_timer(@inactivity_timeout / 4.0, method(:_ping))
+        end
         return
       end
       request = @waiting_requests.delete @request_id
