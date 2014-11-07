@@ -245,6 +245,10 @@ module IProto
         # do nothing cause we explicitely disconnected
       end
     end
+
+    def waiting_requests_size
+      @waiting_requests.size + @waiting_for_connect.size
+    end
   end
 
   class EMFiberedConnection < EMConnection
